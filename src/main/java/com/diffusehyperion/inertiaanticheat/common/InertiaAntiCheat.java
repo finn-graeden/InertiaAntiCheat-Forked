@@ -5,7 +5,7 @@ import com.diffusehyperion.inertiaanticheat.server.InertiaAntiCheatServer;
 import com.moandjiezana.toml.Toml;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.network.PacketByteBuf;
+import net.minecraft.network.FriendlyByteBuf;
 
 import javax.crypto.*;
 import javax.crypto.spec.SecretKeySpec;
@@ -89,7 +89,7 @@ public class InertiaAntiCheat implements ModInitializer {
         return FabricLoader.getInstance().getConfigDir().resolve("InertiaAntiCheat");
     }
 
-    public static PublicKey retrievePublicKey(PacketByteBuf packetByteBuf) {
+    public static PublicKey retrievePublicKey(FriendlyByteBuf packetByteBuf) {
         byte[] rawPublicKeyBytes = new byte[packetByteBuf.readableBytes()];
         packetByteBuf.readBytes(rawPublicKeyBytes);
         X509EncodedKeySpec publicKeySpec = new X509EncodedKeySpec(rawPublicKeyBytes);
@@ -165,7 +165,7 @@ public class InertiaAntiCheat implements ModInitializer {
         }
     }
 
-    public static byte[] decryptAESRSAEncodedBuf(PacketByteBuf buf, PrivateKey privateKey) {
+    public static byte[] decryptAESRSAEncodedBuf(FriendlyByteBuf buf, PrivateKey privateKey) {
         int encryptedSecretKeyLength = buf.readInt();
         byte[] encryptedSecretKey = new byte[encryptedSecretKeyLength];
         buf.readBytes(encryptedSecretKey);

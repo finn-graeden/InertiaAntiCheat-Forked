@@ -5,9 +5,9 @@ import com.diffusehyperion.inertiaanticheat.common.util.GroupAnticheatDetails;
 import com.diffusehyperion.inertiaanticheat.common.util.IndividualAnticheatDetails;
 import com.diffusehyperion.inertiaanticheat.common.util.ValidationMethod;
 import com.diffusehyperion.inertiaanticheat.server.InertiaAntiCheatServer;
-import net.minecraft.network.ClientConnection;
-import net.minecraft.network.packet.c2s.query.QueryPingC2SPacket;
-import net.minecraft.server.network.ServerQueryNetworkHandler;
+import net.minecraft.network.Connection;
+import net.minecraft.network.protocol.ping.ServerboundPingRequestPacket;
+import net.minecraft.server.network.ServerStatusPacketListenerImpl;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -15,14 +15,14 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-@Mixin(ServerQueryNetworkHandler.class)
-public abstract class ServerQueryNetworkHandlerMixin {
+@Mixin(ServerStatusPacketListenerImpl.class)
+public abstract class ServerStatusPacketListenerImplMixin {
     @Shadow @Final
-    private ClientConnection connection;
+    private Connection connection;
 
-    @Inject(method = "onQueryPing",
+    @Inject(method = "handlePingRequest",
     at = @At(value = "HEAD"))
-    private void injectSendAnticheatDetails(QueryPingC2SPacket packet, CallbackInfo ci) {
+    private void injectSendAnticheatDetails(ServerboundPingRequestPacket packet, CallbackInfo ci) {
         if (InertiaAntiCheatServer.validationMethod == ValidationMethod.INDIVIDUAL) {
             IndividualAnticheatDetails details =
                     new IndividualAnticheatDetails(

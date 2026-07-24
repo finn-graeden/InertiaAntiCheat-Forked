@@ -1,8 +1,8 @@
 {
   "required": true,
-  "minVersion": "0.8",
   "package": "com.diffusehyperion.inertiaanticheat.mixins",
   "compatibilityLevel": "JAVA_21",
+  "minVersion": "0.8",
   "injectors": {
     "defaultRequire": 1
   },
@@ -10,10 +10,10 @@
     "requireAnnotations": true
   },
   "server": [
-    "server.ServerLoginNetworkHandlerMixin",
-    "server.ServerQueryNetworkHandlerMixin"
+    "server.ServerLoginPacketListenerImplMixin",
+    "server.ServerStatusPacketListenerImplMixin"
   ],
   "mixins": [
-    "common.QueryStatesMixin"
+    "common.StatusProtocolsMixin"
   ]
 }

@@ -18,10 +18,10 @@ import com.diffusehyperion.inertiaanticheat.server.networking.method.name.Server
 import com.diffusehyperion.inertiaanticheat.server.networking.method.name.handlers.NameValidationHandler;
 import me.lucko.fabric.api.permissions.v0.Permissions;
 import net.fabricmc.fabric.api.networking.v1.*;
-import net.minecraft.network.PacketByteBuf;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.network.ServerLoginNetworkHandler;
-import net.minecraft.text.Text;
+import net.minecraft.server.network.ServerLoginPacketListenerImpl;
+import net.minecraft.network.chat.Component;
 
 import java.security.KeyPair;
 import java.security.PublicKey;
@@ -45,25 +45,25 @@ public class ServerLoginModlistTransferHandler {
      * Afterward, this does preliminary checks to see if the client has permissions to bypass the mod
      * If not, sends a packet to check if the client understands custom packets from this mod
      */
-    private static void initiateConnection(ServerLoginNetworkHandler handler, MinecraftServer minecraftServer, LoginPacketSender sender, ServerLoginNetworking.LoginSynchronizer synchronizer) {
+    private static void initiateConnection(ServerLoginPacketListenerImpl handler, MinecraftServer minecraftServer, LoginPacketSender sender, ServerLoginNetworking.LoginSynchronizer synchronizer) {
         UpgradedServerLoginNetworkHandler upgradedHandler = (UpgradedServerLoginNetworkHandler) handler;
 
         ServerLoginModlistTransferHandler transferHandler = new ServerLoginModlistTransferHandler();
         synchronizer.waitFor(transferHandler.loginBlocker);
 
         debugLine();
-        debugInfo("Checking if " + handler.getConnectionInfo() + " has bypass permissions");
+        debugInfo("Checking if " + handler.getUserName() + " has bypass permissions");
         boolean allowed = Permissions.check(upgradedHandler.inertiaAntiCheat$getGameProfile(), "inertiaanticheat.bypass").join();
         if (allowed) {
-            debugInfo(handler.getConnectionInfo() + " is allowed to bypass");
+            debugInfo(handler.getUserName() + " is allowed to bypass");
             debugLine();
             transferHandler.loginBlocker.complete(null);
             return;
         }
-        debugInfo("Not allowed to bypass, checking if address " + handler.getConnectionInfo() + " responds to mod messages");
+        debugInfo("Not allowed to bypass, checking if address " + handler.getUserName() + " responds to mod messages");
 
         ServerLoginNetworking.registerReceiver(handler, InertiaAntiCheatConstants.CHECK_CONNECTION, transferHandler::checkConnection);
-        sender.sendPacket(InertiaAntiCheatConstants.CHECK_CONNECTION, PacketByteBufs.empty());
+        sender.sendPacket(InertiaAntiCheatConstants.CHECK_CONNECTION, FriendlyByteBufs.empty());
     }
 
     /**
@@ -71,20 +71,20 @@ public class ServerLoginModlistTransferHandler {
      * Afterward, this starts the key exchanging process
      */
     private void
-    checkConnection(MinecraftServer minecraftServer, ServerLoginNetworkHandler handler,
-                    boolean b, PacketByteBuf buf,
+    checkConnection(MinecraftServer minecraftServer, ServerLoginPacketListenerImpl handler,
+                    boolean b, FriendlyByteBuf buf,
                     ServerLoginNetworking.LoginSynchronizer synchronizer, PacketSender packetSender) {
         LoginPacketSender sender = (LoginPacketSender) packetSender;
 
         if (!b) {
-            debugInfo(handler.getConnectionInfo() + " does not respond to mod messages, kicking now");
-            handler.disconnect(Text.of(InertiaAntiCheatServer.serverConfig.getString("validation.vanillaKickMessage")));
+            debugInfo(handler.getUserName() + " does not respond to mod messages, kicking now");
+            handler.disconnect(Component.nullToEmpty(InertiaAntiCheatServer.serverConfig.getString("validation.vanillaKickMessage")));
             return;
         }
-        debugInfo(handler.getConnectionInfo() + " responds to mod messages, creating handler");
+        debugInfo(handler.getUserName() + " responds to mod messages, creating handler");
 
 
-        PacketByteBuf response = PacketByteBufs.create();
+        FriendlyByteBuf response = FriendlyByteBufs.create();
         KeyPair keyPair = InertiaAntiCheat.createRSAPair();
         this.serverKeyPair = keyPair;
         response.writeBytes(keyPair.getPublic().getEncoded());
@@ -98,15 +98,15 @@ public class ServerLoginModlistTransferHandler {
      * Afterward, inform client on which transfer method to use
      */
     private void
-    setAdaptor(MinecraftServer server, ServerLoginNetworkHandler handler,
-               boolean b, PacketByteBuf buf,
+    setAdaptor(MinecraftServer server, ServerLoginPacketListenerImpl handler,
+               boolean b, FriendlyByteBuf buf,
                ServerLoginNetworking.LoginSynchronizer synchronizer, PacketSender packetSender) {
-        debugInfo("Received " + handler.getConnectionInfo() + " keypair");
+        debugInfo("Received " + handler.getUserName() + " keypair");
         LoginPacketSender sender = (LoginPacketSender) packetSender;
 
         this.clientKey = InertiaAntiCheat.retrievePublicKey(buf);
 
-        PacketByteBuf response = PacketByteBufs.create();
+        FriendlyByteBuf response = FriendlyByteBufs.create();
 
         response.writeInt(InertiaAntiCheatServer.transferMethod.ordinal());
 
@@ -118,17 +118,17 @@ public class ServerLoginModlistTransferHandler {
      * Creates transfer and validator adaptor instances
      */
     private void
-    beginModTransfer(MinecraftServer server, ServerLoginNetworkHandler handler,
-               boolean b, PacketByteBuf packetByteBuf,
-               ServerLoginNetworking.LoginSynchronizer synchronizer, PacketSender packetSender) {
+    beginModTransfer(MinecraftServer server, ServerLoginPacketListenerImpl handler,
+                     boolean b, FriendlyByteBuf packetByteBuf,
+                     ServerLoginNetworking.LoginSynchronizer synchronizer, PacketSender packetSender) {
         LoginPacketSender sender = (LoginPacketSender) packetSender;
         UpgradedServerLoginNetworkHandler upgradedHandler = (UpgradedServerLoginNetworkHandler) handler;
 
         Runnable failureTask = () -> {
-            debugInfo("Address " + upgradedHandler.inertiaAntiCheat$getConnection().getAddress() + " failed modlist check");
-            handler.disconnect(Text.of(InertiaAntiCheatServer.serverConfig.getString("validation.deniedKickMessage")));
+            debugInfo("Address " + upgradedHandler.inertiaAntiCheat$getConnection().getRemoteAddress() + " failed modlist check");
+            handler.disconnect(Component.nullToEmpty(InertiaAntiCheatServer.serverConfig.getString("validation.deniedKickMessage")));
         };
-        Runnable successTask = () -> debugInfo("Address " + upgradedHandler.inertiaAntiCheat$getConnection().getAddress() + " passed modlist check");
+        Runnable successTask = () -> debugInfo("Address " + upgradedHandler.inertiaAntiCheat$getConnection().getRemoteAddress() + " passed modlist check");
         Runnable finishTask = () -> {
             debugInfo("Finishing transfer, checking mods now");
             ServerLoginNetworking.unregisterReceiver(handler, InertiaAntiCheatConstants.SEND_MOD);
@@ -146,7 +146,7 @@ public class ServerLoginModlistTransferHandler {
                 };
 
                 new ServerDataReceiverHandler(this.serverKeyPair, InertiaAntiCheatConstants.SEND_MOD, handler, (DataValidationHandler) validatorAdaptor);
-                sender.sendPacket(InertiaAntiCheatConstants.SEND_MOD, PacketByteBufs.empty());
+                sender.sendPacket(InertiaAntiCheatConstants.SEND_MOD, FriendlyByteBufs.empty());
             }
             case NAME -> {
                 validatorAdaptor = switch (InertiaAntiCheatServer.validationMethod) {
@@ -157,7 +157,7 @@ public class ServerLoginModlistTransferHandler {
                 };
 
                 new ServerNameReceiverHandler(this.serverKeyPair, InertiaAntiCheatConstants.SEND_MOD, handler, (NameValidationHandler) validatorAdaptor);
-                sender.sendPacket(InertiaAntiCheatConstants.SEND_MOD, PacketByteBufs.empty());
+                sender.sendPacket(InertiaAntiCheatConstants.SEND_MOD, FriendlyByteBufs.empty());
             }
             case ID -> {
                 validatorAdaptor = switch (InertiaAntiCheatServer.validationMethod) {
@@ -168,7 +168,7 @@ public class ServerLoginModlistTransferHandler {
                 };
 
                 new ServerIdReceiverHandler(this.serverKeyPair, InertiaAntiCheatConstants.SEND_MOD, handler, (IdValidationHandler) validatorAdaptor);
-                sender.sendPacket(InertiaAntiCheatConstants.SEND_MOD, PacketByteBufs.empty());
+                sender.sendPacket(InertiaAntiCheatConstants.SEND_MOD, FriendlyByteBufs.empty());
             }
             default -> // should never happen since this would get caught in server initialization, but java needs this
                     throw new RuntimeException("Invalid or no given checking method type given in server config!");

@@ -4,20 +4,20 @@ import com.diffusehyperion.inertiaanticheat.common.interfaces.UpgradedServerInfo
 import com.diffusehyperion.inertiaanticheat.common.networking.packets.S2C.AnticheatDetailsS2CPacket;
 import com.diffusehyperion.inertiaanticheat.common.networking.packets.UpgradedClientQueryPacketListener;
 import com.diffusehyperion.inertiaanticheat.utils.QuadConsumer;
-import net.minecraft.client.network.MultiplayerServerListPinger;
-import net.minecraft.client.network.ServerAddress;
-import net.minecraft.client.network.ServerInfo;
-import net.minecraft.network.ClientConnection;
-import net.minecraft.network.DisconnectionInfo;
-import net.minecraft.network.NetworkingBackend;
-import net.minecraft.network.packet.c2s.query.QueryPingC2SPacket;
-import net.minecraft.network.packet.s2c.query.PingResultS2CPacket;
-import net.minecraft.network.packet.s2c.query.QueryResponseS2CPacket;
+import net.minecraft.client.multiplayer.ServerStatusPinger;
+import net.minecraft.client.multiplayer.resolver.ServerAddress;
+import net.minecraft.client.multiplayer.ServerData;
+import net.minecraft.network.Connection;
+import net.minecraft.network.DisconnectionDetails;
+import net.minecraft.server.network.EventLoopGroupHolder;
+import net.minecraft.network.protocol.ping.ServerboundPingRequestPacket;
+import net.minecraft.network.protocol.ping.ClientboundPongResponsePacket;
+import net.minecraft.network.protocol.status.ClientboundStatusResponsePacket;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.PlayerConfigEntry;
-import net.minecraft.server.ServerMetadata;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
+import net.minecraft.server.players.NameAndId;
+import net.minecraft.network.protocol.status.ServerStatus;
+import net.minecraft.network.chat.Component;
+import net.minecraft.ChatFormatting;
 import net.minecraft.util.Util;
 
 import java.net.InetSocketAddress;
@@ -29,28 +29,28 @@ import java.util.function.BiConsumer;
 public class UpgradedClientQueryNetworkHandler implements UpgradedClientQueryPacketListener {
     /* ---------- vanilla fields ----------*/
 
-    private final ServerInfo entry;
+    private final ServerData entry;
     private final Runnable saver;
     private final Runnable pingCallback;
-    private final NetworkingBackend backend;
+    private final EventLoopGroupHolder backend;
 
-    private final ClientConnection clientConnection;
+    private final Connection clientConnection;
 
     private final InetSocketAddress inetSocketAddress;
     private final ServerAddress serverAddress;
 
-    private final BiConsumer<Text, ServerInfo> showErrorMethod;
-    private final QuadConsumer<InetSocketAddress, ServerAddress, ServerInfo, NetworkingBackend> pingMethod;
+    private final BiConsumer<Component, ServerData> showErrorMethod;
+    private final QuadConsumer<InetSocketAddress, ServerAddress, ServerData, EventLoopGroupHolder> pingMethod;
 
     private boolean sentQuery;
     private boolean received;
     private long startTime;
 
-    public UpgradedClientQueryNetworkHandler(ServerInfo entry, Runnable saver, Runnable pingCallback, NetworkingBackend backend,
-                                             ClientConnection clientConnection,
+    public UpgradedClientQueryNetworkHandler(ServerData entry, Runnable saver, Runnable pingCallback, EventLoopGroupHolder backend,
+                                             Connection clientConnection,
                                              InetSocketAddress inetSocketAddress, ServerAddress serverAddress,
-                                             BiConsumer<Text, ServerInfo> showErrorMethod,
-                                             QuadConsumer<InetSocketAddress, ServerAddress, ServerInfo, NetworkingBackend> pingMethod) {
+                                             BiConsumer<Component, ServerData> showErrorMethod,
+                                             QuadConsumer<InetSocketAddress, ServerAddress, ServerData, EventLoopGroupHolder> pingMethod) {
         /* ---------- vanilla fields ----------*/
 
         this.entry = entry;
@@ -77,69 +77,69 @@ public class UpgradedClientQueryNetworkHandler implements UpgradedClientQueryPac
     /* ---------- (Mostly) vanilla stuff below ----------*/
 
     @Override
-    public void onResponse(QueryResponseS2CPacket packet) {
+    public void handleStatusResponse(ClientboundStatusResponsePacket packet) {
         if (this.received) {
-            clientConnection.disconnect(Text.translatable("multiplayer.status.unrequested"));
+            clientConnection.disconnect(Component.translatable("multiplayer.status.unrequested"));
         } else {
             this.received = true;
-            ServerMetadata serverMetadata = packet.metadata();
-            entry.label = serverMetadata.description();
+            ServerStatus serverMetadata = packet.status();
+            entry.motd = serverMetadata.description();
             serverMetadata.version().ifPresentOrElse(version -> {
-                entry.version = Text.literal(version.gameVersion());
-                entry.protocolVersion = version.protocolVersion();
+                entry.version = Component.literal(version.name());
+                entry.protocol = version.protocol();
             }, () -> {
-                entry.version = Text.translatable("multiplayer.status.old");
-                entry.protocolVersion = 0;
+                entry.version = Component.translatable("multiplayer.status.old");
+                entry.protocol = 0;
             });
             serverMetadata.players().ifPresentOrElse(players -> {
-                entry.playerCountLabel = MultiplayerServerListPinger.createPlayerCountText(players.online(), players.max());
+                entry.status = ServerStatusPinger.formatPlayerCount(players.online(), players.max());
                 entry.players = players;
                 if (!players.sample().isEmpty()) {
-                    List<Text> list = new ArrayList<>(players.sample().size());
+                    List<Component> list = new ArrayList<>(players.sample().size());
 
-                    for (PlayerConfigEntry playerConfigEntry : players.sample()) {
-                        Text text;
+                    for (NameAndId playerConfigEntry : players.sample()) {
+                        Component text;
                         if (playerConfigEntry.equals(MinecraftServer.ANONYMOUS_PLAYER_PROFILE)) {
-                            text = Text.translatable("multiplayer.status.anonymous_player");
+                            text = Component.translatable("multiplayer.status.anonymous_player");
                         } else {
-                            text = Text.literal(playerConfigEntry.name());
+                            text = Component.literal(playerConfigEntry.name());
                         }
 
                         list.add(text);
                     }
 
                     if (players.sample().size() < players.online()) {
-                        list.add(Text.translatable("multiplayer.status.and_more", players.online() - players.sample().size()));
+                        list.add(Component.translatable("multiplayer.status.and_more", players.online() - players.sample().size()));
                     }
 
-                    entry.playerListSummary = list;
+                    entry.playerList = list;
                 } else {
-                    entry.playerListSummary = List.of();
+                    entry.playerList = List.of();
                 }
-            }, () -> entry.playerCountLabel = Text.translatable("multiplayer.status.unknown").formatted(Formatting.DARK_GRAY));
+            }, () -> entry.status = Component.translatable("multiplayer.status.unknown").withStyle(ChatFormatting.DARK_GRAY));
             serverMetadata.favicon().ifPresent(favicon -> {
-                if (!Arrays.equals(favicon.iconBytes(), entry.getFavicon())) {
-                    entry.setFavicon(ServerInfo.validateFavicon(favicon.iconBytes()));
+                if (!Arrays.equals(favicon.iconBytes(), entry.getIconBytes())) {
+                    entry.setIconBytes(ServerData.validateIcon(favicon.iconBytes()));
                     saver.run();
                 }
             });
-            this.startTime = Util.getMeasuringTimeMs();
-            clientConnection.send(new QueryPingC2SPacket(this.startTime));
+            this.startTime = Util.getMillis();
+            clientConnection.send(new ServerboundPingRequestPacket(this.startTime));
             this.sentQuery = true;
         }
     }
 
     @Override
-    public void onPingResult(PingResultS2CPacket packet) {
+    public void handlePongResponse(ClientboundPongResponsePacket packet) {
         long l = this.startTime;
-        long m = Util.getMeasuringTimeMs();
+        long m = Util.getMillis();
         entry.ping = m - l;
-        this.clientConnection.disconnect(Text.translatable("multiplayer.status.finished"));
+        this.clientConnection.disconnect(Component.translatable("multiplayer.status.finished"));
         this.pingCallback.run();
     }
 
     @Override
-    public void onDisconnected(DisconnectionInfo info) {
+    public void onDisconnect(DisconnectionDetails info) {
         if (!this.sentQuery) {
             showErrorMethod.accept(info.reason(), entry);
             pingMethod.accept(inetSocketAddress, serverAddress, entry, backend);
@@ -147,7 +147,7 @@ public class UpgradedClientQueryNetworkHandler implements UpgradedClientQueryPac
     }
 
     @Override
-    public boolean isConnectionOpen() {
-        return this.clientConnection.isOpen();
+    public boolean isAcceptingMessages() {
+        return this.clientConnection.isConnected();
     }
 }

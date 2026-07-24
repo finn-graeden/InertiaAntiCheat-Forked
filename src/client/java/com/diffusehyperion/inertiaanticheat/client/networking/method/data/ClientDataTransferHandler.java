@@ -8,11 +8,11 @@ import com.diffusehyperion.inertiaanticheat.common.util.InertiaAntiCheatConstant
 import io.netty.channel.ChannelFutureListener;
 import net.fabricmc.fabric.api.client.networking.v1.ClientLoginNetworking;
 import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientLoginNetworkHandler;
-import net.minecraft.network.PacketByteBuf;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientHandshakePacketListenerImpl;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -38,7 +38,7 @@ public class ClientDataTransferHandler extends TransferHandler {
     
     public static final int MAX_SIZE = 1000000;
 
-    public ClientDataTransferHandler(PublicKey publicKey, Identifier modTransferID, Consumer<Text> secondaryStatusConsumer) {
+    public ClientDataTransferHandler(PublicKey publicKey, Identifier modTransferID, Consumer<Component> secondaryStatusConsumer) {
         super(publicKey, modTransferID, secondaryStatusConsumer, InertiaAntiCheatClient.allModPaths.size());
 
         debugInfo("Creating data transfer handler");
@@ -52,7 +52,7 @@ public class ClientDataTransferHandler extends TransferHandler {
     }
 
     @Override
-    public CompletableFuture<PacketByteBuf> transferMod(MinecraftClient ignored1, ClientLoginNetworkHandler ignored2, PacketByteBuf ignored3, Consumer<ChannelFutureListener> ignored4) {
+    public CompletableFuture<FriendlyByteBuf> transferMod(Minecraft ignored1, ClientHandshakePacketListenerImpl ignored2, FriendlyByteBuf ignored3, Consumer<ChannelFutureListener> ignored4) {
         if (this.completed && this.loadedFiles.isEmpty() && Objects.isNull(currentFile)) {
             // All files have been sent, returning null to signify goodbye
             debugInfo("Sending final packet");
@@ -67,7 +67,7 @@ public class ClientDataTransferHandler extends TransferHandler {
             this.currentFile = stageNextFile();
         }
         
-        PacketByteBuf buf = PacketByteBufs.create();
+        FriendlyByteBuf buf = PacketByteBufs.create();
         byte[] chunk;
 
         if (this.currentFile.length > ClientDataTransferHandler.MAX_SIZE) {
@@ -87,7 +87,7 @@ public class ClientDataTransferHandler extends TransferHandler {
             this.currentFile = null;
             buf.writeBoolean(true);
         }
-        PacketByteBuf responseBuf = this.preparePacket(buf, chunk);
+        FriendlyByteBuf responseBuf = this.preparePacket(buf, chunk);
 
         debugLine();
 

@@ -5,11 +5,11 @@ import com.diffusehyperion.inertiaanticheat.client.networking.method.TransferHan
 import com.diffusehyperion.inertiaanticheat.common.util.InertiaAntiCheatConstants;
 import io.netty.channel.ChannelFutureListener;
 import net.fabricmc.fabric.api.client.networking.v1.ClientLoginNetworking;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientLoginNetworkHandler;
-import net.minecraft.network.PacketByteBuf;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientHandshakePacketListenerImpl;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 
 import java.nio.charset.StandardCharsets;
 import java.security.PublicKey;
@@ -23,7 +23,7 @@ public class ClientNameTransferHandler extends TransferHandler {
     private final int maxIndex;
     private int currentIndex;
 
-    public ClientNameTransferHandler(PublicKey publicKey, Identifier modTransferID, Consumer<Text> secondaryStatusConsumer) {
+    public ClientNameTransferHandler(PublicKey publicKey, Identifier modTransferID, Consumer<Component> secondaryStatusConsumer) {
         super(publicKey, modTransferID, secondaryStatusConsumer, InertiaAntiCheatClient.allModNames.size());
 
         debugInfo("Creating name transfer handler");
@@ -33,7 +33,7 @@ public class ClientNameTransferHandler extends TransferHandler {
     }
 
     @Override
-    public CompletableFuture<PacketByteBuf> transferMod(MinecraftClient client, ClientLoginNetworkHandler handler, PacketByteBuf buf, Consumer<ChannelFutureListener> callbacksConsumer) {
+    public CompletableFuture<FriendlyByteBuf> transferMod(Minecraft client, ClientHandshakePacketListenerImpl handler, FriendlyByteBuf buf, Consumer<ChannelFutureListener> callbacksConsumer) {
         debugInfo("Sending mod " + this.currentIndex);
 
         if (this.currentIndex >= this.maxIndex) {
@@ -46,7 +46,7 @@ public class ClientNameTransferHandler extends TransferHandler {
             ClientLoginNetworking.unregisterGlobalReceiver(InertiaAntiCheatConstants.SEND_MOD);
             return CompletableFuture.completedFuture(null);
         }
-        PacketByteBuf responseBuf = this.preparePacket(InertiaAntiCheatClient.allModNames.get(currentIndex).getBytes(StandardCharsets.UTF_8));
+        FriendlyByteBuf responseBuf = this.preparePacket(InertiaAntiCheatClient.allModNames.get(currentIndex).getBytes(StandardCharsets.UTF_8));
 
         this.increaseSentModsStatus();
         this.currentIndex++;

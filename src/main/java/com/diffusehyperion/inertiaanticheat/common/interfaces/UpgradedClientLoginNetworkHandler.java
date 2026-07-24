@@ -1,11 +1,11 @@
 package com.diffusehyperion.inertiaanticheat.common.interfaces;
 
-import net.minecraft.text.Text;
+import net.minecraft.network.chat.Component;
 
 import java.util.function.Consumer;
 
 public interface UpgradedClientLoginNetworkHandler {
-    void inertiaAntiCheat$setSecondaryStatusConsumer(Consumer<Text> consumer);
+    void inertiaAntiCheat$setSecondaryStatusConsumer(Consumer<Component> consumer);
 
-    Consumer<Text> inertiaAntiCheat$getSecondaryStatusConsumer();
+    Consumer<Component> inertiaAntiCheat$getSecondaryStatusConsumer();
 }

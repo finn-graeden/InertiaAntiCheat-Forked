@@ -12,10 +12,10 @@ import io.netty.channel.ChannelFutureListener;
 import net.fabricmc.fabric.api.client.networking.v1.ClientLoginConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientLoginNetworking;
 import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientLoginNetworkHandler;
-import net.minecraft.network.PacketByteBuf;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientHandshakePacketListenerImpl;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.Nullable;
 
 import java.security.KeyPair;
@@ -39,15 +39,15 @@ public class ClientLoginModlistTransferHandler {
      * Responds to any connection check packets
      * This also creates an instance of this class and begins listening for key exchange requests.
      */
-    private static CompletableFuture<@Nullable PacketByteBuf>
-    confirmConnection(MinecraftClient client, ClientLoginNetworkHandler handler,
-                      PacketByteBuf buf, Consumer<ChannelFutureListener> callbacksConsumer) {
+    private static CompletableFuture<@Nullable FriendlyByteBuf>
+    confirmConnection(Minecraft client, ClientHandshakePacketListenerImpl handler,
+                      FriendlyByteBuf buf, Consumer<ChannelFutureListener> callbacksConsumer) {
         UpgradedClientLoginNetworkHandler upgradedHandler = (UpgradedClientLoginNetworkHandler) handler;
 
         debugLine();
         debugInfo("Received request to start mod transfer");
 
-        upgradedHandler.inertiaAntiCheat$getSecondaryStatusConsumer().accept(Text.of("Preparing mod transfer..."));
+        upgradedHandler.inertiaAntiCheat$getSecondaryStatusConsumer().accept(Component.nullToEmpty("Preparing mod transfer..."));
 
         ClientLoginModlistTransferHandler transferHandler = new ClientLoginModlistTransferHandler();
         ClientLoginNetworking.registerReceiver(InertiaAntiCheatConstants.INITIATE_E2EE, transferHandler::exchangeKey);
@@ -58,18 +58,18 @@ public class ClientLoginModlistTransferHandler {
      * Responds to key exchange requests
      * Saves server's public key and generates a client keypair to send
      */
-    private CompletableFuture<@Nullable PacketByteBuf>
-    exchangeKey(MinecraftClient client, ClientLoginNetworkHandler handler,
-                PacketByteBuf buf, Consumer<ChannelFutureListener> callbacksConsumer) {
+    private CompletableFuture<@Nullable FriendlyByteBuf>
+    exchangeKey(Minecraft client, ClientHandshakePacketListenerImpl handler,
+                FriendlyByteBuf buf, Consumer<ChannelFutureListener> callbacksConsumer) {
         UpgradedClientLoginNetworkHandler upgradedHandler = (UpgradedClientLoginNetworkHandler) handler;
 
         debugInfo("Exchanging keys with server");
 
-        upgradedHandler.inertiaAntiCheat$getSecondaryStatusConsumer().accept(Text.of("Transferring keys..."));
+        upgradedHandler.inertiaAntiCheat$getSecondaryStatusConsumer().accept(Component.nullToEmpty("Transferring keys..."));
 
         this.serverPublicKey = InertiaAntiCheat.retrievePublicKey(buf);
 
-        PacketByteBuf responseBuf = PacketByteBufs.create();
+        FriendlyByteBuf responseBuf = PacketByteBufs.create();
         this.clientKeyPair = InertiaAntiCheat.createRSAPair();
         responseBuf.writeBytes(this.clientKeyPair.getPublic().getEncoded());
 
@@ -80,15 +80,15 @@ public class ClientLoginModlistTransferHandler {
     /**
      * Responds to server's chosen adaptor and creates appropriate instances
      */
-    private CompletableFuture<@Nullable PacketByteBuf>
-    createAdaptors(MinecraftClient client, ClientLoginNetworkHandler handler,
-                PacketByteBuf buf, Consumer<ChannelFutureListener> callbacksConsumer) {
+    private CompletableFuture<@Nullable FriendlyByteBuf>
+    createAdaptors(Minecraft client, ClientHandshakePacketListenerImpl handler,
+                   FriendlyByteBuf buf, Consumer<ChannelFutureListener> callbacksConsumer) {
         UpgradedClientLoginNetworkHandler upgradedHandler = (UpgradedClientLoginNetworkHandler) handler;
 
-        upgradedHandler.inertiaAntiCheat$getSecondaryStatusConsumer().accept(Text.of("Starting for mod transfer..."));
+        upgradedHandler.inertiaAntiCheat$getSecondaryStatusConsumer().accept(Component.nullToEmpty("Starting for mod transfer..."));
 
         int transferAdaptorIndex = buf.readInt();
-        Consumer<Text> secondaryStatusConsumer = upgradedHandler.inertiaAntiCheat$getSecondaryStatusConsumer();
+        Consumer<Component> secondaryStatusConsumer = upgradedHandler.inertiaAntiCheat$getSecondaryStatusConsumer();
         debugInfo("Received adapter index of " + transferAdaptorIndex);
 
         CheckingTypes transferAdaptorType = CheckingTypes.values()[transferAdaptorIndex];

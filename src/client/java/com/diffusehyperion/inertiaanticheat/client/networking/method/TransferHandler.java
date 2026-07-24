@@ -5,11 +5,11 @@ import com.diffusehyperion.inertiaanticheat.common.util.InertiaAntiCheatConstant
 import io.netty.channel.ChannelFutureListener;
 import net.fabricmc.fabric.api.client.networking.v1.ClientLoginNetworking;
 import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientLoginNetworkHandler;
-import net.minecraft.network.PacketByteBuf;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientHandshakePacketListenerImpl;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 
 import javax.crypto.SecretKey;
 import java.security.PublicKey;
@@ -19,12 +19,12 @@ import java.util.function.Consumer;
 public abstract class TransferHandler {
     protected final PublicKey publicKey;
     protected final Identifier modTransferID;
-    protected final Consumer<Text> secondaryStatusConsumer;
+    protected final Consumer<Component> secondaryStatusConsumer;
 
     private int sentMods;
     private final int totalMods;
     
-    public TransferHandler(PublicKey publicKey, Identifier modTransferID, Consumer<Text> secondaryStatusConsumer, int totalMods) {
+    public TransferHandler(PublicKey publicKey, Identifier modTransferID, Consumer<Component> secondaryStatusConsumer, int totalMods) {
         this.publicKey = publicKey;
         this.modTransferID = modTransferID;
         this.secondaryStatusConsumer = secondaryStatusConsumer;
@@ -36,19 +36,19 @@ public abstract class TransferHandler {
         ClientLoginNetworking.registerReceiver(InertiaAntiCheatConstants.SEND_MOD, this::transferMod);
     }
 
-    protected abstract CompletableFuture<PacketByteBuf> transferMod(MinecraftClient client, ClientLoginNetworkHandler handler, PacketByteBuf buf, Consumer<ChannelFutureListener> callbacksConsumer);
+    protected abstract CompletableFuture<FriendlyByteBuf> transferMod(Minecraft client, ClientHandshakePacketListenerImpl handler, FriendlyByteBuf buf, Consumer<ChannelFutureListener> callbacksConsumer);
 
-    public void onDisconnect(ClientLoginNetworkHandler ignored1, MinecraftClient ignored2) {
+    public void onDisconnect(ClientHandshakePacketListenerImpl ignored1, Minecraft ignored2) {
         ClientLoginNetworking.unregisterReceiver(this.modTransferID);
     }
 
-    protected PacketByteBuf preparePacket(byte[] data) {
-        PacketByteBuf buf = PacketByteBufs.create();
+    protected FriendlyByteBuf preparePacket(byte[] data) {
+        FriendlyByteBuf buf = PacketByteBufs.create();
 
         return this.preparePacket(buf, data);
     }
 
-    protected PacketByteBuf preparePacket(PacketByteBuf buf, byte[] data) {
+    protected FriendlyByteBuf preparePacket(FriendlyByteBuf buf, byte[] data) {
         SecretKey secretKey = InertiaAntiCheat.createAESKey();
 
         byte[] encryptedRSASecretKey = InertiaAntiCheat.encryptRSABytes(secretKey.getEncoded(), this.publicKey);
@@ -61,7 +61,7 @@ public abstract class TransferHandler {
     }
 
     protected void setCompleteTransferStatus() {
-        this.secondaryStatusConsumer.accept(Text.of("Waiting for validation..."));
+        this.secondaryStatusConsumer.accept(Component.nullToEmpty("Waiting for validation..."));
     }
 
     protected void increaseSentModsStatus() {
@@ -70,6 +70,6 @@ public abstract class TransferHandler {
     }
 
     private void updateSecondaryStatus(String message) {
-        this.secondaryStatusConsumer.accept(Text.of(message));
+        this.secondaryStatusConsumer.accept(Component.nullToEmpty(message));
     }
 }

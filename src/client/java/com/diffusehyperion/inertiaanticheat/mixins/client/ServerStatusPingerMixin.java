@@ -7,13 +7,13 @@ import com.diffusehyperion.inertiaanticheat.common.networking.packets.UpgradedCl
 import com.llamalad7.mixinextras.sugar.Local;
 import com.llamalad7.mixinextras.sugar.Share;
 import com.llamalad7.mixinextras.sugar.ref.LocalRef;
-import net.minecraft.client.network.MultiplayerServerListPinger;
-import net.minecraft.client.network.ServerAddress;
-import net.minecraft.client.network.ServerInfo;
-import net.minecraft.network.ClientConnection;
-import net.minecraft.network.NetworkingBackend;
-import net.minecraft.network.listener.ClientQueryPacketListener;
-import net.minecraft.text.Text;
+import net.minecraft.client.multiplayer.ServerStatusPinger;
+import net.minecraft.client.multiplayer.resolver.ServerAddress;
+import net.minecraft.client.multiplayer.ServerData;
+import net.minecraft.network.Connection;
+import net.minecraft.server.network.EventLoopGroupHolder;
+import net.minecraft.network.protocol.status.ClientStatusPacketListener;
+import net.minecraft.network.chat.Component;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
@@ -23,46 +23,46 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.net.InetSocketAddress;
 
-@Mixin(MultiplayerServerListPinger.class)
-public abstract class MultiplayerServerListPingerMixin {
+@Mixin(ServerStatusPinger.class)
+public abstract class ServerStatusPingerMixin {
     @Shadow
-    void showError(Text error, ServerInfo info) {}
+    void onPingFailed(Component error, ServerData info) {}
     @Shadow
-    void ping(InetSocketAddress socketAddress, ServerAddress address, ServerInfo serverInfo, NetworkingBackend backend) {}
+    void pingLegacyServer(InetSocketAddress socketAddress, ServerAddress address, ServerData serverInfo, EventLoopGroupHolder backend) {}
 
-    @Inject(method = "add",
+    @Inject(method = "pingServer",
             at = @At(value = "HEAD"))
-    private void setUpgradedServerPingRefs(ServerInfo entry, Runnable saver, Runnable pingCallback, NetworkingBackend backend, CallbackInfo ci,
-                                           @Share("serverInfo") LocalRef<ServerInfo> serverDataLocalRef,
+    private void setUpgradedServerPingRefs(ServerData entry, Runnable saver, Runnable pingCallback, EventLoopGroupHolder backend, CallbackInfo ci,
+                                           @Share("serverInfo") LocalRef<ServerData> serverDataLocalRef,
                                            @Share("saver") LocalRef<Runnable> saverLocalRef,
                                            @Share("pingCallback") LocalRef<Runnable> pingCallbackLocalRef,
-                                           @Share("backend") LocalRef<NetworkingBackend> backendLocalRef) {
+                                           @Share("backend") LocalRef<EventLoopGroupHolder> backendLocalRef) {
         serverDataLocalRef.set(entry);
         saverLocalRef.set(saver);
         pingCallbackLocalRef.set(pingCallback);
         backendLocalRef.set(backend);
     }
 
-    @Redirect(method = "add",
-            at = @At(value = "INVOKE", target = "Lnet/minecraft/network/ClientConnection;connect(Ljava/lang/String;ILnet/minecraft/network/listener/ClientQueryPacketListener;)V"))
+    @Redirect(method = "pingServer",
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/network/Connection;initiateServerboundStatusConnection(Ljava/lang/String;ILnet/minecraft/network/protocol/status/ClientStatusPacketListener;)V"))
     private void upgradeServerPing(
-            ClientConnection connection, String host, int port, ClientQueryPacketListener clientQueryPacketListener,
-            @Share("serverInfo") LocalRef<ServerInfo> serverDataLocalRef,
+            Connection connection, String host, int port, ClientStatusPacketListener clientQueryPacketListener,
+            @Share("serverInfo") LocalRef<ServerData> serverDataLocalRef,
             @Share("saver") LocalRef<Runnable> runnableLocalRef,
             @Share("pingCallback") LocalRef<Runnable> pingCallbackLocalRef,
-            @Share("backend") LocalRef<NetworkingBackend> backendLocalRef,
+            @Share("backend") LocalRef<EventLoopGroupHolder> backendLocalRef,
             @Local InetSocketAddress inetSocketAddress,
             @Local ServerAddress serverAddress) {
-        ServerInfo serverInfo = serverDataLocalRef.get();
+        ServerData serverInfo = serverDataLocalRef.get();
         Runnable saver = runnableLocalRef.get();
         Runnable pingCallback = pingCallbackLocalRef.get();
-        NetworkingBackend backend = backendLocalRef.get();
+        EventLoopGroupHolder backend = backendLocalRef.get();
 
         UpgradedClientQueryPacketListener listener =
                 new UpgradedClientQueryNetworkHandler(serverInfo, saver, pingCallback, backend,
                         connection, inetSocketAddress, serverAddress,
-                this::showError,
-                this::ping);
+                this::onPingFailed,
+                this::pingLegacyServer);
 
         ((UpgradedServerInfo) serverInfo).inertiaAntiCheat$setInertiaInstalled(null);
         ((UpgradedServerInfo) serverInfo).inertiaAntiCheat$setAnticheatDetails(null);
