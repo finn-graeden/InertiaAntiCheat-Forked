@@ -11,7 +11,7 @@ import com.diffusehyperion.inertiaanticheat.server.networking.method.CheckingTyp
 import io.netty.channel.ChannelFutureListener;
 import net.fabricmc.fabric.api.client.networking.v1.ClientLoginConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientLoginNetworking;
-import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
+import net.fabricmc.fabric.api.networking.v1.FriendlyByteBufs;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientHandshakePacketListenerImpl;
 import net.minecraft.network.FriendlyByteBuf;
@@ -51,7 +51,7 @@ public class ClientLoginModlistTransferHandler {
 
         ClientLoginModlistTransferHandler transferHandler = new ClientLoginModlistTransferHandler();
         ClientLoginNetworking.registerReceiver(InertiaAntiCheatConstants.INITIATE_E2EE, transferHandler::exchangeKey);
-        return CompletableFuture.completedFuture(PacketByteBufs.empty());
+        return CompletableFuture.completedFuture(FriendlyByteBufs.empty());
     }
 
     /**
@@ -69,7 +69,7 @@ public class ClientLoginModlistTransferHandler {
 
         this.serverPublicKey = InertiaAntiCheat.retrievePublicKey(buf);
 
-        FriendlyByteBuf responseBuf = PacketByteBufs.create();
+        FriendlyByteBuf responseBuf = FriendlyByteBufs.create();
         this.clientKeyPair = InertiaAntiCheat.createRSAPair();
         responseBuf.writeBytes(this.clientKeyPair.getPublic().getEncoded());
 
@@ -104,6 +104,6 @@ public class ClientLoginModlistTransferHandler {
         debugInfo("Registered new handler for channel");
         debugLine();
 
-        return CompletableFuture.completedFuture(PacketByteBufs.empty());
+        return CompletableFuture.completedFuture(FriendlyByteBufs.empty());
     }
 }

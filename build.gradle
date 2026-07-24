@@ -21,6 +21,17 @@ repositories {
     // for more information about repositories.
 }
 
+loom {
+    splitEnvironmentSourceSets()
+
+    mods {
+        "inertiaanticheat" {
+            sourceSet sourceSets.main
+            sourceSet sourceSets.client
+        }
+    }
+
+}
 
 
 dependencies {

@@ -7,7 +7,7 @@ import com.diffusehyperion.inertiaanticheat.common.util.HashAlgorithm;
 import com.diffusehyperion.inertiaanticheat.common.util.InertiaAntiCheatConstants;
 import io.netty.channel.ChannelFutureListener;
 import net.fabricmc.fabric.api.client.networking.v1.ClientLoginNetworking;
-import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
+import net.fabricmc.fabric.api.networking.v1.FriendlyByteBufs;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientHandshakePacketListenerImpl;
 import net.minecraft.network.FriendlyByteBuf;
@@ -67,7 +67,7 @@ public class ClientDataTransferHandler extends TransferHandler {
             this.currentFile = stageNextFile();
         }
         
-        FriendlyByteBuf buf = PacketByteBufs.create();
+        FriendlyByteBuf buf = FriendlyByteBufs.create();
         byte[] chunk;
 
         if (this.currentFile.length > ClientDataTransferHandler.MAX_SIZE) {

@@ -1,7 +1,7 @@
 package com.diffusehyperion.inertiaanticheat.mixins.client;
 
 import com.diffusehyperion.inertiaanticheat.common.interfaces.UpgradedConnectScreen;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.ConnectScreen;
 import net.minecraft.network.chat.Component;
@@ -30,9 +30,9 @@ public abstract class ConnectScreenMixin extends Screen implements UpgradedConne
     }
 
     @Inject(method = "render", at = @At(value = "TAIL"))
-    private void render(GuiGraphics context, int mouseX, int mouseY, float deltaTicks, CallbackInfo ci) {
+    private void render(GuiGraphicsExtractor context, int mouseX, int mouseY, float deltaTicks, CallbackInfo ci) {
         if (Objects.nonNull(this.secondaryStatus)) {
-            context.drawCenteredString(this.font, this.secondaryStatus, this.width / 2, this.height / 2 - 35, 16777215);
+            context.text(this.font, this.secondaryStatus, this.width / 2, this.height, 16777215);
         }
     }
 }

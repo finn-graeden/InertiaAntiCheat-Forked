@@ -6,7 +6,7 @@ import com.diffusehyperion.inertiaanticheat.common.util.GroupAnticheatDetails;
 import com.diffusehyperion.inertiaanticheat.common.util.IndividualAnticheatDetails;
 import com.diffusehyperion.inertiaanticheat.common.util.ValidationMethod;
 import net.minecraft.client.renderer.RenderPipelines;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.multiplayer.ServerSelectionList;
 import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.network.chat.Component;
@@ -40,7 +40,7 @@ public abstract class MultiplayerServerListWidgetServerEntryMixin extends Server
             method = "renderContent",
             at = @At(value = "TAIL")
     )
-    private void render(GuiGraphics context, int mouseX, int mouseY, boolean hovered, float deltaTicks, CallbackInfo ci) {
+    private void render(GuiGraphicsExtractor context, int mouseX, int mouseY, boolean hovered, float deltaTicks, CallbackInfo ci) {
         UpgradedServerInfo upgradedServerInfo = ((UpgradedServerInfo) serverData);
         Boolean installed = upgradedServerInfo.inertiaAntiCheat$isInertiaInstalled();
         AnticheatDetails anticheatDetails = upgradedServerInfo.inertiaAntiCheat$getAnticheatDetails();
